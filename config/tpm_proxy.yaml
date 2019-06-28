@@ -1,0 +1,70 @@
+admin:
+  access_log_path: /tmp/access.log
+  address:
+    socket_address:
+      protocol: TCP
+      address: 127.0.0.1
+      port_value: 9901
+static_resources:
+  listeners:
+  - name: listener_0
+    address:
+      socket_address:
+        protocol: TCP
+        address: 0.0.0.0
+        port_value: 10000
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+          stat_prefix: ingress_http
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: local_service
+              domains: ["*"]
+              routes:
+              - match:
+                  prefix: "/"
+                request_headers_to_add:
+                  - header:
+                      key: "x-forwarded-proto"
+                      value: "https"
+                    append: false
+                route:
+                  # <target-server-placeholder.com> - server that requires client certificate based on TPM
+                  host_rewrite: target-server-placeholder.com
+                  cluster: service_tls_originate
+          http_filters:
+          - name: envoy.router
+  clusters:
+  - name: service_tls_originate
+    connect_timeout: 2.5s
+    type: LOGICAL_DNS
+    # Comment out the following line to test on v6 networks
+    dns_lookup_family: V4_ONLY
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: service_tls_originate
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: target-server-placeholder.com
+                port_value: 443
+    tls_context:
+      sni: target-server-placeholder.com
+      common_tls_context:
+        tls_certificates:
+          - certificate_chain:
+              filename: /opt/tpm-certs/leaf.cert.pem 
+            private_key_method:
+              provider_name: pkm_provider_tss
+              config:
+                idkey_file: /opt/tpm-certs/identity1.key.pem
+                idkey_auth_type: sha1
+                idkey_auth: f572d396fae9206628714fb2ce00f72e94f2258f
+                srk_auth_type: sha1
+                srk_auth: 55e82e1eb131597ce6ef77ff775b2c2e5f4d6b45

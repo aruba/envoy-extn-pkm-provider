@@ -5,6 +5,12 @@ local_repository(
     path = "envoy",
 )
 
+new_local_repository(
+    name = "tspi",
+    path = "/usr/lib/x86_64-linux-gnu",
+    build_file = "tspi.BUILD"
+)
+
 load("@envoy//bazel:api_repositories.bzl", "envoy_api_dependencies")
 envoy_api_dependencies()
 

@@ -13,13 +13,14 @@ envoy_cc_binary(
     deps = [
         ":pkm_provider",
         "@envoy//source/exe:envoy_main_entry_lib",
+        "@tspi//:lib"
     ],
 )
 
 envoy_cc_library(
     name = "pkm_provider",
-    srcs = ["pkm_provider.cc"],
-    hdrs = ["pkm_provider.h"],
+    srcs = ["pkm_provider.cc", "pkm_provider_tss.cc", "tpm/tpm_key.cc", "tpm/tpm_privkey_operator.cc", "util.cc"],
+    hdrs = ["pkm_provider.h", "pkm_provider_tss.h", "tpm/tpm_key.h", "tpm/tpm_privkey_operator.h", "util.h"],
     repository = "@envoy",
     deps = [
         "@envoy//include/envoy/server:transport_socket_config_interface",
@@ -28,7 +29,10 @@ envoy_cc_library(
         "@envoy//source/common/common:assert_lib",
         "@envoy//source/common/common:logger_lib",
     ],
+    copts = ["-fpermissive", "-Wno-error"],
 )
+
+
 
 sh_test(
     name = "envoy_binary_test",
