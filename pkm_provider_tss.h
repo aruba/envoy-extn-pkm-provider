@@ -19,15 +19,15 @@ class TssPKMPrivateKeyMethodProviderInstanceFactory
     : public PrivateKeyMethodProviderInstanceFactory {
 public:
   PrivateKeyMethodProviderSharedPtr
-  createPrivateKeyMethodProviderInstance(const envoy::api::v2::auth::PrivateKeyMethod& message,
+  createPrivateKeyMethodProviderInstance(const envoy::api::v2::auth::PrivateKeyProvider& message,
                                          Server::Configuration::TransportSocketFactoryContext&
                                              private_key_method_provider_context) override;
   virtual std::string name() const override { return "pkm_provider_tss"; }
 };
 
-class TssPKMPrivateKeyConnection : public virtual Ssl::PrivateKeyConnection {
+class TssPKMPrivateKeyConnection {
 public:
-  TssPKMPrivateKeyConnection(SSL* ssl, std::shared_ptr<TpmKey> srk, std::shared_ptr<TpmKey> idkey);
+  TssPKMPrivateKeyConnection(std::shared_ptr<TpmKey> srk, std::shared_ptr<TpmKey> idkey);
 
   std::shared_ptr<TpmKey> getSrk() { return srk; };
   std::shared_ptr<TpmKey> getIdKey() { return idkey; };
@@ -46,10 +46,14 @@ public:
       const ProtobufWkt::Struct& config,
       Server::Configuration::TransportSocketFactoryContext& factory_context);
   virtual ~TssPKMPrivateKeyMethodProvider() {}
-  virtual PrivateKeyConnectionPtr getPrivateKeyConnection(SSL* ssl,
-                                                          PrivateKeyConnectionCallbacks& cb,
-                                                          Event::Dispatcher& dispatcher) override;
   virtual BoringSslPrivateKeyMethodSharedPtr getBoringSslPrivateKeyMethod() override;
+
+  virtual void registerPrivateKeyMethod(SSL* ssl, PrivateKeyConnectionCallbacks& cb,
+                                        Event::Dispatcher& dispatcher) override;
+
+  virtual void unregisterPrivateKeyMethod(SSL* ssl) override;
+  virtual bool checkFips() override;
+
   static int ssl_rsa_connection_index;
 
 private:

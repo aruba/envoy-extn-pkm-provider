@@ -101,25 +101,25 @@ static ssl_private_key_result_t PrivateKeyComplete(SSL* ssl, uint8_t* out, size_
   return ssl_private_key_success;
 }
 
-PKMPrivateKeyConnection::PKMPrivateKeyConnection(SSL* ssl, bssl::UniquePtr<EVP_PKEY> pkey)
-    : pkey_(move(pkey)) {
-  SSL_set_ex_data(ssl, PKMPrivateKeyMethodProvider::ssl_rsa_connection_index, this);
+PKMPrivateKeyConnection::PKMPrivateKeyConnection(bssl::UniquePtr<EVP_PKEY> pkey)
+    : pkey_(move(pkey)) {}
+
+void PKMPrivateKeyMethodProvider::registerPrivateKeyMethod(SSL* ssl,
+                                                           Ssl::PrivateKeyConnectionCallbacks& cb,
+                                                           Event::Dispatcher& dispatcher) {
+
+  UNREFERENCED_PARAMETER(dispatcher);
+  UNREFERENCED_PARAMETER(cb);
+
+  PKMPrivateKeyConnection* ops = new PKMPrivateKeyConnection(bssl::UpRef(evp_private_key_));
+  SSL_set_ex_data(ssl, PKMPrivateKeyMethodProvider::ssl_rsa_connection_index, ops);
 }
 
-Ssl::PrivateKeyConnectionPtr PKMPrivateKeyMethodProvider::getPrivateKeyConnection(
-    SSL* ssl, Ssl::PrivateKeyConnectionCallbacks& cb, Event::Dispatcher& dispatcher) {
-
-  (void)cb;
-  (void)dispatcher;
-
-  bssl::UniquePtr<BIO> bio(
-      BIO_new_mem_buf(const_cast<char*>(private_key_.data()), private_key_.size()));
-  bssl::UniquePtr<EVP_PKEY> pkey(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
-  if (pkey == nullptr) {
-    return nullptr;
-  }
-
-  return std::make_unique<PKMPrivateKeyConnection>(ssl, move(pkey));
+void PKMPrivateKeyMethodProvider::unregisterPrivateKeyMethod(SSL* ssl) {
+  PKMPrivateKeyConnection* ops = static_cast<PKMPrivateKeyConnection*>(
+      SSL_get_ex_data(ssl, PKMPrivateKeyMethodProvider::ssl_rsa_connection_index));
+  SSL_set_ex_data(ssl, PKMPrivateKeyMethodProvider::ssl_rsa_connection_index, nullptr);
+  delete ops;
 }
 
 PKMPrivateKeyMethodProvider::PKMPrivateKeyMethodProvider(
@@ -144,6 +144,11 @@ PKMPrivateKeyMethodProvider::PKMPrivateKeyMethodProvider(
 
   private_key_ = factory_context.api().fileSystem().fileReadToEnd(private_key_path);
 
+  bssl::UniquePtr<BIO> bio(
+      BIO_new_mem_buf(const_cast<char*>(private_key_.data()), private_key_.size()));
+  bssl::UniquePtr<EVP_PKEY> pkey(PEM_read_bio_PrivateKey(bio.get(), nullptr, nullptr, nullptr));
+  evp_private_key_ = std::move(pkey);
+
   method_ = std::make_shared<SSL_PRIVATE_KEY_METHOD>();
   method_->sign = PrivateKeySign;
   method_->decrypt = PrivateKeyDecrypt;
@@ -154,9 +159,19 @@ BoringSslPrivateKeyMethodSharedPtr PKMPrivateKeyMethodProvider::getBoringSslPriv
   return method_;
 }
 
+bool PKMPrivateKeyMethodProvider::checkFips() {
+  RSA* rsa_private_key = EVP_PKEY_get0_RSA(evp_private_key_.get());
+
+  if (rsa_private_key == nullptr || !RSA_check_fips(rsa_private_key)) {
+    return false;
+  }
+
+  return true;
+}
+
 PrivateKeyMethodProviderSharedPtr
 PKMPrivateKeyMethodProviderInstanceFactory::createPrivateKeyMethodProviderInstance(
-    const envoy::api::v2::auth::PrivateKeyMethod& message,
+    const envoy::api::v2::auth::PrivateKeyProvider& message,
     Server::Configuration::TransportSocketFactoryContext& private_key_method_provider_context) {
 
   return PrivateKeyMethodProviderSharedPtr(

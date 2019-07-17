@@ -441,24 +441,35 @@ static ssl_private_key_result_t PrivateKeyComplete(SSL* ssl, uint8_t* out, size_
   return ssl_private_key_success;
 }
 
-TssPKMPrivateKeyConnection::TssPKMPrivateKeyConnection(SSL* ssl, std::shared_ptr<TpmKey> srk,
+TssPKMPrivateKeyConnection::TssPKMPrivateKeyConnection(std::shared_ptr<TpmKey> srk,
                                                        std::shared_ptr<TpmKey> idkey)
     : srk(move(srk)), idkey(move(idkey)) {
-  SSL_set_ex_data(ssl, TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index, this);
 }
 
-Ssl::PrivateKeyConnectionPtr TssPKMPrivateKeyMethodProvider::getPrivateKeyConnection(
-    SSL* ssl, Ssl::PrivateKeyConnectionCallbacks& cb, Event::Dispatcher& dispatcher) {
+void TssPKMPrivateKeyMethodProvider::registerPrivateKeyMethod(SSL* ssl,
+                                                           Ssl::PrivateKeyConnectionCallbacks& cb,
+                                                           Event::Dispatcher& dispatcher) {
 
-  (void)cb;
-  (void)dispatcher;
+  UNREFERENCED_PARAMETER(dispatcher);
+  UNREFERENCED_PARAMETER(cb);
 
-  return std::make_unique<TssPKMPrivateKeyConnection>(ssl, srk, idkey);
+  TssPKMPrivateKeyConnection *ops = new TssPKMPrivateKeyConnection(srk, idkey);
+  SSL_set_ex_data(ssl, TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index, ops);
 }
+
+void TssPKMPrivateKeyMethodProvider::unregisterPrivateKeyMethod(SSL* ssl) {
+  TssPKMPrivateKeyConnection* ops = static_cast<TssPKMPrivateKeyConnection*>(
+      SSL_get_ex_data(ssl, TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index));
+  SSL_set_ex_data(ssl, TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index, nullptr);
+  delete ops;
+}
+
 
 TssPKMPrivateKeyMethodProvider::TssPKMPrivateKeyMethodProvider(
     const ProtobufWkt::Struct& config,
     Server::Configuration::TransportSocketFactoryContext& factory_context) {
+
+  ENVOY_LOG_MISC(debug, "TssPKMPrivateKeyMethodProvider::TssPKMPrivateKeyMethodProvider");
 
   if (TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index == -1) {
     TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index =
@@ -528,16 +539,27 @@ BoringSslPrivateKeyMethodSharedPtr TssPKMPrivateKeyMethodProvider::getBoringSslP
 
 PrivateKeyMethodProviderSharedPtr
 TssPKMPrivateKeyMethodProviderInstanceFactory::createPrivateKeyMethodProviderInstance(
-    const envoy::api::v2::auth::PrivateKeyMethod& message,
+    const envoy::api::v2::auth::PrivateKeyProvider& message,
     Server::Configuration::TransportSocketFactoryContext& private_key_method_provider_context) {
 
   return PrivateKeyMethodProviderSharedPtr(
       new TssPKMPrivateKeyMethodProvider(message.config(), private_key_method_provider_context));
 }
 
+
+bool TssPKMPrivateKeyMethodProvider::checkFips() {
+  return false;
+}
+
+
+
 static Registry::RegisterFactory<TssPKMPrivateKeyMethodProviderInstanceFactory,
                                  PrivateKeyMethodProviderInstanceFactory>
     pkm_tss_registered_;
+/*
+REGISTER_FACTORY(TssPKMPrivateKeyMethodProviderInstanceFactory, PrivateKeyMethodProviderInstanceFactory);
+*/
+
 
 } // namespace Ssl
 } // namespace Envoy

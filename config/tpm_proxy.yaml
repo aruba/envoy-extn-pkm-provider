@@ -60,7 +60,7 @@ static_resources:
         tls_certificates:
           - certificate_chain:
               filename: /opt/tpm-certs/leaf.cert.pem 
-            private_key_method:
+            private_key_provider:
               provider_name: pkm_provider_tss
               config:
                 idkey_file: /opt/tpm-certs/identity1.key.pem
