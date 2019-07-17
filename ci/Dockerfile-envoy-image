@@ -1,0 +1,21 @@
+FROM ubuntu:18.04
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y ca-certificates \
+    && apt-get install -y libtspi-dev \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /tmp/* /var/tmp/* \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /etc/envoy
+
+ADD build_release_stripped/envoy /usr/local/bin/envoy
+
+EXPOSE 10000
+
+ADD config/google_com_proxy.v5.yaml /etc/envoy/envoy.yaml
+COPY envoy/ci/docker-entrypoint.sh /
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["envoy", "-c", "/etc/envoy/envoy.yaml"]

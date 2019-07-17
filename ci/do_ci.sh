@@ -14,6 +14,10 @@ function do_build () {
     bazel build --verbose_failures=true //:envoy
 }
 
+function do_release_build () {
+    bazel build --verbose_failures=true -c opt //:envoy
+}
+
 function do_test() {
     bazel test --test_output=all --test_env=ENVOY_IP_TEST_VERSIONS=v4only \
       //:echo2_integration_test
@@ -22,6 +26,9 @@ function do_test() {
 case "$1" in
   build)
     do_build
+  ;;
+  release-build)
+    do_release_build
   ;;
   test)
     do_test

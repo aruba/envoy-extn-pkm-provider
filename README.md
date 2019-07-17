@@ -12,7 +12,8 @@ If you have multiple applications (using different SSL libraries) that need to c
 
 ## Build
 
-* bazel build //:envoy
+* ci/do_ci.sh build
+* ci/docker_build.sh
 
 # Configure
 
@@ -21,7 +22,8 @@ If you have multiple applications (using different SSL libraries) that need to c
 
 # Run
 
-* sudo envoy -c config/tpm_proxy.yaml  [-l debug]
+* sudo envoy -c config/tpm_proxy.yaml  [-l debug] - or
+* TSS_TCSD_HOSTNAME=<host-ip> docker run -v $(pwd)/config/tpm_proxy.yaml:/etc/envoy/envoy.yaml -p 10000:10000 -e TSS_TCSD_HOSTNAME  envoy:latest -c /etc/envoy/envoy.yaml -l debug
 
 # Access
 
