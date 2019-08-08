@@ -22,7 +22,7 @@ public:
                                          Server::Configuration::TransportSocketFactoryContext&
                                              private_key_method_provider_context) override;
 
-  virtual std::string name() const override { return "pkm_providerx"; }
+  virtual std::string name() const override { return "pkm_provider"; }
 };
 
 class PKMPrivateKeyConnection {
