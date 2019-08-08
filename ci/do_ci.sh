@@ -1,8 +1,10 @@
 #!/bin/bash -e
 
 export PATH=/usr/lib/llvm-7/bin:$PATH
-export CC=clang
-export CXX=clang++
+# Commenting following lines due to build issues using envoy-build-ubuntu image
+# Defaulting to gcc
+#export CC=clang
+#export CXX=clang++
 export ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-7/bin/llvm-symbolizer
 echo "$CC/$CXX toolchain configured"
 
@@ -11,11 +13,13 @@ if [[ -f "${HOME:-/root}/.gitconfig" ]]; then
 fi
 
 function do_build () {
-    bazel build --verbose_failures=true //:envoy
+    bazel build -s --verbose_failures=true //:envoy
+    cp bazel-bin/envoy /build/envoy
 }
 
 function do_release_build () {
-    bazel build --verbose_failures=true -c opt //:envoy
+    bazel build -s --verbose_failures=true -c opt //:envoy
+    cp bazel-bin/envoy /build/envoy
 }
 
 function do_test() {
