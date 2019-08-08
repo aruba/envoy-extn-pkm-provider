@@ -1,4 +1,4 @@
 [submodule "envoy"]
 	path = envoy
-	url = https://github.com/ipuustin/envoy.git
+	url = https://github.com/scheler/envoy.git
 	branch = private-key
