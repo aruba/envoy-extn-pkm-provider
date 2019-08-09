@@ -56,6 +56,8 @@ static int compute_digest(RSA* rsa, const uint8_t* in, size_t in_len, uint16_t s
   unsigned int hash_len = 0;
   bssl::ScopedEVP_MD_CTX ctx;
 
+  ENVOY_LOG_MISC(debug, "Signature algorithm: {}", SSL_get_signature_algorithm_name(signature_algorithm, 1));
+
   const EVP_MD* md = SSL_get_signature_algorithm_digest(signature_algorithm);
 
   if (!EVP_DigestInit_ex(ctx.get(), md, nullptr) || !EVP_DigestUpdate(ctx.get(), in, in_len) ||
