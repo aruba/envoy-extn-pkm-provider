@@ -16,6 +16,7 @@
 #include "tpm/tpm_privkey_operator.h"
 #include "util.h"
 
+
 namespace Envoy {
 namespace Ssl {
 
@@ -56,7 +57,6 @@ static int compute_digest(RSA* rsa, const uint8_t* in, size_t in_len, uint16_t s
   unsigned int hash_len = 0;
   bssl::ScopedEVP_MD_CTX ctx;
 
-  ENVOY_LOG_MISC(debug, "Signature algorithm: {}", SSL_get_signature_algorithm_name(signature_algorithm, 1));
 
   const EVP_MD* md = SSL_get_signature_algorithm_digest(signature_algorithm);
 
@@ -93,6 +93,8 @@ static ssl_private_key_result_t PrivateKeySign(SSL* ssl, uint8_t* out, size_t* o
   uint8_t* msg;
   size_t msg_len;
   int is_alloced;
+
+  ENVOY_LOG_MISC(debug, "SSL version: {}, cipher: {}, sigalg: {}", SSL_get_version(ssl), SSL_get_cipher(ssl), SSL_get_signature_algorithm_name(signature_algorithm, 1));
 
   TssPKMPrivateKeyConnection* conn = static_cast<TssPKMPrivateKeyConnection*>(
       SSL_get_ex_data(ssl, TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index));
@@ -172,6 +174,12 @@ void TssPKMPrivateKeyMethodProvider::registerPrivateKeyMethod(SSL* ssl,
 
   UNREFERENCED_PARAMETER(dispatcher);
   UNREFERENCED_PARAMETER(cb);
+
+  // TPM 1.2 supports only PKCS1 padding for RSA, so we will skip algoritms using PSS padding
+  static const char *supported_signature_algorithms = "RSA+SHA256:RSA+SHA384:RSA+SHA512:RSA+SHA";
+  if (!SSL_set1_sigalgs_list(ssl, supported_signature_algorithms)) {
+      throw EnvoyException("Failed to set sigalgs.");
+  }
 
   TssPKMPrivateKeyConnection *ops = new TssPKMPrivateKeyConnection(srk, idkey);
   SSL_set_ex_data(ssl, TssPKMPrivateKeyMethodProvider::ssl_rsa_connection_index, ops);
