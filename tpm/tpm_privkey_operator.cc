@@ -14,6 +14,7 @@
 #include "tss/tspi.h"
 #include "envoy/server/transport_socket_config.h"
 #include "tpm_privkey_operator.h"
+#include "tpm_error.h"
 
 #define NULL_HKEY 0
 
@@ -96,15 +97,16 @@ TPMPrivKeyOperator* TPMPrivKeyOperatorImpl::loadKey(std::shared_ptr<TpmKey> idke
 
   if ((result =
            Tspi_Context_LoadKeyByBlob(hContext, hSRK, blobstr->length, blobstr->data, &hKey))) {
-    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Context_LoadKeyByBlob error {}",
-                   result);
+    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Context_LoadKeyByBlob error {}:{}",
+                   result, err_string(result));
     throw std::runtime_error("Error loading key");
   }
 
   if ((result = Tspi_GetAttribUint32(hKey, TSS_TSPATTRIB_KEY_INFO, TSS_TSPATTRIB_KEYINFO_AUTHUSAGE,
                                      &authusage))) {
     Tspi_Context_CloseObject(hContext, hKey);
-    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_GetAttribUint32 error {}", result);
+    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_GetAttribUint32 error {}:{}",
+                   result, err_string(result));
 
     throw std::runtime_error("Error loading key");
   }
@@ -115,16 +117,16 @@ TPMPrivKeyOperator* TPMPrivKeyOperatorImpl::loadKey(std::shared_ptr<TpmKey> idke
     if ((result = Tspi_Context_CreateObject(hContext, TSS_OBJECT_TYPE_POLICY, TSS_POLICY_USAGE,
                                             &hPolicy))) {
       Tspi_Context_CloseObject(hContext, hKey);
-      ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Context_CreateObject error {}",
-                     result);
+      ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Context_CreateObject error {}:{}",
+                   result, err_string(result));
       throw std::runtime_error("Error loading key");
     }
 
     if ((result = Tspi_Policy_AssignToObject(hPolicy, hKey))) {
       Tspi_Context_CloseObject(hContext, hKey);
       Tspi_Context_CloseObject(hContext, hPolicy);
-      ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Policy_AssignToObject error {}",
-                     result);
+      ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Policy_AssignToObject error {}:{}",
+                   result, err_string(result));
 
       throw std::runtime_error("Error loading key");
     }
@@ -136,8 +138,8 @@ TPMPrivKeyOperator* TPMPrivKeyOperatorImpl::loadKey(std::shared_ptr<TpmKey> idke
              auth_sha1 ? idkey->auth_sha1 : idkey->auth_plain.c_str()))) {
       Tspi_Context_CloseObject(hContext, hKey);
       Tspi_Context_CloseObject(hContext, hPolicy);
-      ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Policy_SetSecret error {}",
-                     result);
+      ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::loadKey::Tspi_Policy_SetSecret error {}:{}",
+                   result, err_string(result));
       throw std::runtime_error("Error loading key");
     }
   }
@@ -181,15 +183,15 @@ RSA* TPMPrivKeyOperatorImpl::constructRSAObject() {
 
   if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_RSAKEY_INFO,
                                    TSS_TSPATTRIB_KEYINFO_RSA_MODULUS, &m_size, &m))) {
-    ENVOY_LOG_MISC(error, "Tspi_GetAttribData (TSS_TSPATTRIB_KEYINFO_RSA_MODULUS) returned: {}",
-                   result);
+    ENVOY_LOG_MISC(error, "Tspi_GetAttribData (TSS_TSPATTRIB_KEYINFO_RSA_MODULUS) returned: {}:{}",
+                   result, err_string(result));
     return NULL;
   }
 
   if ((result = Tspi_GetAttribData(hKey, TSS_TSPATTRIB_RSAKEY_INFO,
                                    TSS_TSPATTRIB_KEYINFO_RSA_EXPONENT, &e_size, &e))) {
-    ENVOY_LOG_MISC(error, "Tspi_GetAttribData (TSS_TSPATTRIB_KEYINFO_RSA_EXPONENT) returned: {}",
-                   result);
+    ENVOY_LOG_MISC(error, "Tspi_GetAttribData (TSS_TSPATTRIB_KEYINFO_RSA_EXPONENT) returned: {}:{}",
+                   result, err_string(result));
     return NULL;
   }
 
@@ -214,8 +216,8 @@ int TPMPrivKeyOperatorImpl::encrypt(const uint8_t* in, size_t in_len, uint8_t* o
 
   if ((result = Tspi_Hash_SetHashValue(hHash, in_len, (BYTE*)in))) {
     Tspi_Context_CloseObject(hContext, hHash);
-    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::encrypt::Tspi_Hash_SetHashValue failed::{}",
-                   result);
+    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::encrypt::Tspi_Hash_SetHashValue failed::{}::{}",
+                   result, err_string(result));
     throw std::runtime_error("Error encrypting");
   }
 
@@ -223,7 +225,8 @@ int TPMPrivKeyOperatorImpl::encrypt(const uint8_t* in, size_t in_len, uint8_t* o
   BYTE* sig;
   if ((result = Tspi_Hash_Sign(hHash, hKey, &sig_len, &sig))) {
     Tspi_Context_CloseObject(hContext, hHash);
-    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::encrypt::Tspi_Hash_Sign failed::{}", result);
+    ENVOY_LOG_MISC(error, "TPMPrivKeyOperatorImpl::encrypt::Tspi_Hash_Sign failed::{}::{}",
+		    result, err_string(result));
     throw std::runtime_error("Error encrypting");
   }
 
