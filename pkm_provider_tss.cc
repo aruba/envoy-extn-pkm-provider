@@ -176,7 +176,7 @@ void TssPKMPrivateKeyMethodProvider::registerPrivateKeyMethod(SSL* ssl,
   UNREFERENCED_PARAMETER(cb);
 
   // TPM 1.2 supports only PKCS1 padding for RSA, so we will skip algoritms using PSS padding
-  static const char *supported_signature_algorithms = "RSA+SHA256:RSA+SHA384:RSA+SHA512:RSA+SHA";
+  static const char *supported_signature_algorithms = "RSA+SHA256:RSA+SHA384:RSA+SHA512:RSA+SHA1";
   if (!SSL_set1_sigalgs_list(ssl, supported_signature_algorithms)) {
       throw EnvoyException("Failed to set sigalgs.");
   }
