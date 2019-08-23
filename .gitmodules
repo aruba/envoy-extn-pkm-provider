@@ -1,4 +1,3 @@
 [submodule "envoy"]
 	path = envoy
-	url = https://github.com/scheler/envoy.git
-	branch = private-key
+	url = https://github.com/envoyproxy/envoy.git
